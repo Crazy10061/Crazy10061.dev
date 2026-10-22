@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Gender & Age Guesser</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Load face-api.js for real-time client-side face landmark tracking & detection -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/dist/face-api.js"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+    .dark .glass-card {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .scanner-line {
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #6366f1, #ec4899, transparent);
+      box-shadow: 0 0 15px #6366f1;
+      animation: scan 2s infinite linear;
+    }
+    @keyframes scan {
+      0% { top: 0%; opacity: 0.8; }
+      50% { opacity: 1; }
+      100% { top: 98%; opacity: 0.8; }
+    }
+    .pulse-glow {
+      animation: pulseGlow 2s infinite alternate;
+    }
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 10px rgba(99, 102, 241, 0.2); }
+      100% { box-shadow: 0 0 25px rgba(99, 102, 241, 0.6); }
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-indigo-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid fa-face-smile text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold bg-gradient-to-r from-indigo-400 via-purple-300 to-pink-400 bg-clip-text text-transparent">Age & Gender Vision AI</h1>
+          <p class="text-xs text-slate-400">Powered by Gemini AI Multimodal Vision</p>
+        </div>
+      </div>
+      
+      <!-- API Key Bar -->
+      <div class="flex items-center gap-2 bg-slate-950/80 p-1.5 rounded-xl border border-slate-800 w-full md:w-auto">
+        <i class="fa-solid fa-key text-indigo-400 pl-2 text-xs"></i>
+        <input type="password" id="apiKeyInput" placeholder="Gemini Key (Optional for Deep AI)..." class="bg-transparent text-xs text-slate-200 placeholder-slate-500 focus:outline-none px-2 w-full md:w-56" />
+        <button onclick="saveApiKey()" class="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition shrink-0">
+          Save Key
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-6xl mx-auto px-4 py-8 flex-grow w-full grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+    <!-- Left Column: Image Source Input (5 cols) -->
+    <section class="lg:col-span-5 flex flex-col gap-6">
+      <div class="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/60 shadow-xl flex flex-col gap-5">
+        
+        <div class="flex items-center justify-between border-b border-slate-700/60 pb-3">
+          <h2 class="text-lg font-semibold text-slate-200 flex items-center gap-2">
+            <i class="fa-solid fa-camera text-indigo-400"></i> Select Image Source
+          </h2>
+          <!-- Input Tabs -->
+          <div class="flex bg-slate-900/80 p-1 rounded-lg border border-slate-700/50 text-xs">
+            <button id="tabWebcam" onclick="switchTab('webcam')" class="px-3 py-1.5 rounded-md font-medium text-white bg-indigo-600 transition">Live Cam</button>
+            <button id="tabUpload" onclick="switchTab('upload')" class="px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-white transition">Upload</button>
+            <button id="tabSamples" onclick="switchTab('samples')" class="px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-white transition">Samples</button>
+          </div>
+        </div>
+
+        <!-- Tab 1: Live Webcam View with Canvas Tracking Overlay -->
+        <div id="contentWebcam" class="flex flex-col items-center gap-4 min-h-[280px] justify-center bg-slate-900/60 rounded-xl p-4 border border-slate-700/50">
+          <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden border border-slate-700 flex items-center justify-center">
+            <video id="webcamVideo" autoplay playsinline muted class="w-full h-full object-cover hidden scale-x-[-1]"></video>
+            <!-- Canvas Overlay for dynamic bounding box tracking and landmark dots -->
+            <canvas id="trackingCanvas" class="absolute inset-0 pointer-events-none w-full h-full"></canvas>
+            
+            <div id="webcamPlaceholder" class="text-center p-4 flex flex-col items-center gap-2">
+              <div class="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-indigo-400 text-xl mb-1">
+                <i class="fa-solid fa-video"></i>
+              </div>
+              <p class="text-xs font-medium text-slate-300">Live Continuous Face Tracking</p>
+              <p class="text-[11px] text-slate-500 max-w-xs">Start your camera to trace face movement continuously with instant age & gender feedback.</p>
+            </div>
+          </div>
+
+          <div class="flex gap-2 w-full">
+            <button id="startCamBtn" onclick="initWebcam()" class="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
+              <i class="fa-solid fa-power-off"></i> Start Live Tracking
+            </button>
+            <button id="captureCamBtn" onclick="captureWebcam()" disabled class="flex-1 py-2.5 bg-pink-600 hover:bg-pink-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-camera-retro"></i> Snap & Deep AI
+            </button>
+          </div>
+
+          <div id="liveTrackBadge" class="hidden w-full bg-indigo-950/40 border border-indigo-500/30 rounded-lg p-2.5 text-center">
+            <span class="text-xs text-indigo-300 font-medium flex items-center justify-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-green-400 animate-ping"></span> Live Tracking Active: <span id="trackedFacesCount" class="font-bold text-white">0</span> face(s) found
+            </span>
+          </div>
+        </div>
+
+        <!-- Tab 2: Upload Dropzone -->
+        <div id="contentUpload" class="hidden flex-col gap-4">
+          <div id="dropzone" class="border-2 border-dashed border-slate-600 hover:border-indigo-500 bg-slate-900/40 hover:bg-indigo-950/20 rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition text-center min-h-[260px] group">
+            <input type="file" id="fileInput" accept="image/*" class="hidden" onchange="handleFileSelect(event)" />
+            <div class="w-16 h-16 rounded-full bg-slate-800 group-hover:bg-indigo-600/20 group-hover:scale-110 flex items-center justify-center mb-4 transition duration-300">
+              <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-400 group-hover:text-indigo-400"></i>
+            </div>
+            <p class="text-sm font-medium text-slate-200">Drag and drop your photo here</p>
+            <p class="text-xs text-slate-400 mt-1">Supports PNG, JPG, JPEG, WEBP</p>
+            <button type="button" class="mt-4 px-4 py-2 bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-semibold hover:bg-indigo-600 hover:text-white transition">
+              Browse File
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab 3: Sample Images -->
+        <div id="contentSamples" class="hidden grid-cols-2 gap-3 min-h-[260px]">
+          <div onclick="selectSample('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80')" class="group relative rounded-xl overflow-hidden border border-slate-700 cursor-pointer h-28 hover:border-indigo-500 transition">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" alt="Sample 1">
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent flex items-end p-2">
+              <span class="text-[10px] font-medium text-slate-200">Sample Portrait A</span>
+            </div>
+          </div>
+          <div onclick="selectSample('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80')" class="group relative rounded-xl overflow-hidden border border-slate-700 cursor-pointer h-28 hover:border-indigo-500 transition">
+            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" alt="Sample 2">
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent flex items-end p-2">
+              <span class="text-[10px] font-medium text-slate-200">Sample Portrait B</span>
+            </div>
+          </div>
+          <div onclick="selectSample('https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80')" class="group relative rounded-xl overflow-hidden border border-slate-700 cursor-pointer h-28 hover:border-indigo-500 transition">
+            <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" alt="Sample 3">
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent flex items-end p-2">
+              <span class="text-[10px] font-medium text-slate-200">Sample Portrait C</span>
+            </div>
+          </div>
+          <div onclick="selectSample('https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=600&q=80')" class="group relative rounded-xl overflow-hidden border border-slate-700 cursor-pointer h-28 hover:border-indigo-500 transition">
+            <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" alt="Sample 4">
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent flex items-end p-2">
+              <span class="text-[10px] font-medium text-slate-200">Sample Portrait D</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <button id="analyzeBtn" onclick="analyzeImage()" disabled class="w-full py-3.5 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-indigo-500/25 transition duration-200 flex items-center justify-center gap-2">
+          <i class="fa-solid fa-wand-magic-sparkles"></i> Deep AI Reason & Vision Report
+        </button>
+
+      </div>
+    </section>
+
+    <!-- Right Column: Preview & Analysis Results (7 cols) -->
+    <section class="lg:col-span-7 flex flex-col gap-6">
+
+      <!-- Preview Box -->
+      <div class="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/60 shadow-xl flex flex-col gap-4">
+        <h2 class="text-lg font-semibold text-slate-200 flex items-center justify-between">
+          <span class="flex items-center gap-2"><i class="fa-solid fa-expand text-indigo-400"></i> Selected Target Preview</span>
+          <span id="imageDimensions" class="text-xs text-slate-400 font-normal">Live video / Ready</span>
+        </h2>
+
+        <div class="relative w-full h-[320px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+          <!-- Placeholder when no image -->
+          <div id="previewPlaceholder" class="flex flex-col items-center text-slate-500 gap-2">
+            <i class="fa-regular fa-image text-4xl"></i>
+            <p class="text-xs">Selected portrait frame will appear here</p>
+          </div>
+
+          <!-- Container to hold active Preview Image and tracking overlay -->
+          <div id="previewContainer" class="hidden relative w-full h-full flex items-center justify-center overflow-hidden">
+            <!-- Active Preview Image -->
+            <img id="previewImage" class="max-w-full max-h-full object-contain" alt="Target Face" />
+            <!-- Canvas Overlay for facial landmark dots & bounding box -->
+            <canvas id="previewLandmarkCanvas" class="absolute pointer-events-none"></canvas>
+          </div>
+
+          <!-- Scanner Animation Overlay (shown during Gemini deep analysis) -->
+          <div id="scannerOverlay" class="hidden absolute inset-0 bg-indigo-950/20 backdrop-blur-[1px] z-10 flex items-center justify-center">
+            <div class="relative w-full h-full flex items-center justify-center">
+              <div class="scanner-line absolute w-full"></div>
+              <div class="bg-slate-900/90 text-indigo-400 border border-indigo-500/40 rounded-xl px-4 py-2 text-xs font-semibold flex items-center gap-2 shadow-xl">
+                <i class="fa-solid fa-spinner animate-spin"></i> Gemini Multimodal Vision Analyzing...
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Export Facial Landmark Dots Section -->
+        <div id="exportLandmarksContainer" class="hidden flex-col gap-3 pt-2 border-t border-slate-700/60">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-download text-indigo-400"></i> Export Facial Mesh / Landmark Dots
+            </span>
+            <div class="flex items-center gap-2">
+              <label class="text-[11px] text-slate-400 font-medium">Background:</label>
+              <select id="exportBgStyle" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:border-indigo-500">
+                <option value="transparent">Transparent</option>
+                <option value="black">Dark Black</option>
+                <option value="grid">Cyber Grid</option>
+              </select>
+            </div>
+          </div>
+          <button onclick="exportLandmarkDotsPNG()" class="w-full py-2.5 bg-slate-700/80 hover:bg-slate-700 text-cyan-300 hover:text-white border border-cyan-500/30 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2 shadow-md">
+            <i class="fa-solid fa-circle-nodes text-cyan-400"></i> Download Facial Landmark Mesh PNG (No Face)
+          </button>
+        </div>
+      </div>
+
+      <!-- Results Display Card -->
+      <div class="bg-slate-800/60 rounded-2xl p-6 border border-slate-700/60 shadow-xl flex flex-col gap-6">
+        <h2 class="text-lg font-semibold text-slate-200 flex items-center justify-between">
+          <span class="flex items-center gap-2"><i class="fa-solid fa-chart-pie text-indigo-400"></i> Detection & AI Reasoning</span>
+        </h2>
+
+        <!-- Empty State -->
+        <div id="emptyResultState" class="flex flex-col items-center justify-center py-12 text-center text-slate-500 gap-3 border border-dashed border-slate-700 rounded-xl bg-slate-900/30">
+          <i class="fa-solid fa-face-viewfinder text-4xl text-slate-600"></i>
+          <p class="text-xs font-medium">Select an image or start live tracking to view AI facial estimations.</p>
+        </div>
+
+        <!-- Populated Results Container -->
+        <div id="populatedResults" class="hidden flex-col gap-5">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            <!-- Age Estimation Box -->
+            <div class="bg-slate-900/80 border border-slate-700/80 rounded-xl p-4 flex items-center gap-4">
+              <div class="w-12 h-12 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 text-xl font-bold">
+                <i class="fa-solid fa-cake-candles"></i>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-xs font-semibold uppercase text-slate-400 tracking-wide">Estimated Age</span>
+                <div class="flex items-baseline gap-2">
+                  <span id="resAge" class="text-2xl font-extrabold text-white">--</span>
+                  <span id="resAgeRange" class="text-xs text-indigo-300 font-medium">(-- yrs)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Gender Estimation Box -->
+            <div class="bg-slate-900/80 border border-slate-700/80 rounded-xl p-4 flex items-center gap-4">
+              <div id="resGenderIconBg" class="w-12 h-12 rounded-xl bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400 text-xl font-bold">
+                <i id="resGenderIcon" class="fa-solid fa-venus-mars"></i>
+              </div>
+              <div class="flex flex-col">
+                <span class="text-xs font-semibold uppercase text-slate-400 tracking-wide">Gender Detection</span>
+                <div class="flex items-baseline gap-2">
+                  <span id="resGender" class="text-2xl font-extrabold text-white">--</span>
+                  <span id="resGenderConf" class="text-xs text-pink-300 font-medium">(--%)</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Gender Confidence Progress Bar -->
+          <div class="bg-slate-900/50 p-4 rounded-xl border border-slate-700/50 flex flex-col gap-2">
+            <div class="flex justify-between text-xs font-semibold text-slate-300">
+              <span id="labelMale">Male Probability: 0%</span>
+              <span id="labelFemale">Female Probability: 0%</span>
+            </div>
+            <div class="w-full h-3 bg-slate-800 rounded-full overflow-hidden flex">
+              <div id="barMale" class="bg-indigo-500 h-full transition-all duration-700" style="width: 50%"></div>
+              <div id="barFemale" class="bg-pink-500 h-full transition-all duration-700" style="width: 50%"></div>
+            </div>
+          </div>
+
+          <!-- Secondary Facial Feature Badges -->
+          <div>
+            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mb-3">Detected Facial Traits</h3>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div class="bg-slate-900/40 border border-slate-700/40 p-2.5 rounded-lg flex flex-col">
+                <span class="text-[10px] text-slate-400">Expression</span>
+                <span id="traitExpression" class="text-xs font-semibold text-slate-200 truncate">--</span>
+              </div>
+              <div class="bg-slate-900/40 border border-slate-700/40 p-2.5 rounded-lg flex flex-col">
+                <span class="text-[10px] text-slate-400">Apparent Vibe</span>
+                <span id="traitVibe" class="text-xs font-semibold text-slate-200 truncate">--</span>
+              </div>
+              <div class="bg-slate-900/40 border border-slate-700/40 p-2.5 rounded-lg flex flex-col">
+                <span class="text-[10px] text-slate-400">Glasses / Eyewear</span>
+                <span id="traitEyewear" class="text-xs font-semibold text-slate-200 truncate">--</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI Explanation Summary -->
+          <div class="bg-indigo-950/30 border border-indigo-500/20 rounded-xl p-4">
+            <p class="text-xs font-medium text-indigo-300 mb-1 flex items-center gap-1.5">
+              <i class="fa-solid fa-sparkles"></i> AI Feature Reasoning
+            </p>
+            <p id="resReasoning" class="text-xs text-slate-300 leading-relaxed">
+              Analysis based on facial structure, line density, and key landmarks.
+            </p>
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 py-4 bg-slate-950 text-center text-xs text-slate-500">
+    <p>Age and gender predictions are AI estimates based on visual attributes for entertainment purposes.</p>
+  </footer>
+
+  <script>
+    // State management variables
+    let currentImageBase64 = null;
+    let webcamStream = null;
+    let isTracking = false;
+    let trackingInterval = null;
+    let modelsLoaded = false;
+    let lastDetectedLandmarks = []; // Store raw landmark positions for PNG export
+
+    // Load saved API Key on load & pre-load face detection neural nets
+    window.onload = async function() {
+      const savedKey = localStorage.getItem('gemini_api_key') || '';
+      if (savedKey) {
+        document.getElementById('apiKeyInput').value = savedKey;
+      }
+
+      setupDropzone();
+      loadFaceModels();
+      window.addEventListener('resize', handleCanvasResize);
+    };
+
+    // Tab switching handler
+    function switchTab(tabName) {
+      const tabWebcam = document.getElementById('tabWebcam');
+      const tabUpload = document.getElementById('tabUpload');
+      const tabSamples = document.getElementById('tabSamples');
+
+      const contentWebcam = document.getElementById('contentWebcam');
+      const contentUpload = document.getElementById('contentUpload');
+      const contentSamples = document.getElementById('contentSamples');
+
+      // Reset tab active styling
+      [tabWebcam, tabUpload, tabSamples].forEach(tab => {
+        tab.className = 'px-3 py-1.5 rounded-md font-medium text-slate-400 hover:text-white transition';
+      });
+
+      // Hide all contents
+      contentWebcam.classList.add('hidden');
+      contentUpload.classList.add('hidden');
+      contentUpload.classList.remove('flex');
+      contentSamples.classList.add('hidden');
+      contentSamples.classList.remove('grid');
+
+      if (tabName === 'webcam') {
+        tabWebcam.className = 'px-3 py-1.5 rounded-md font-medium text-white bg-indigo-600 transition';
+        contentWebcam.classList.remove('hidden');
+      } else if (tabName === 'upload') {
+        tabUpload.className = 'px-3 py-1.5 rounded-md font-medium text-white bg-indigo-600 transition';
+        contentUpload.classList.remove('hidden');
+        contentUpload.classList.add('flex');
+      } else if (tabName === 'samples') {
+        tabSamples.className = 'px-3 py-1.5 rounded-md font-medium text-white bg-indigo-600 transition';
+        contentSamples.classList.remove('hidden');
+        contentSamples.classList.add('grid');
+      }
+    }
+
+    // Dropzone setup for file uploads
+    function setupDropzone() {
+      const dropzone = document.getElementById('dropzone');
+      const fileInput = document.getElementById('fileInput');
+
+      dropzone.addEventListener('click', () => fileInput.click());
+
+      dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.classList.add('border-indigo-500', 'bg-indigo-950/30');
+      });
+
+      dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('border-indigo-500', 'bg-indigo-950/30');
+      });
+
+      dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('border-indigo-500', 'bg-indigo-950/30');
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+          processFile(e.dataTransfer.files[0]);
+        }
+      });
+    }
+
+    function handleFileSelect(e) {
+      if (e.target.files && e.target.files[0]) {
+        processFile(e.target.files[0]);
+      }
+    }
+
+    function processFile(file) {
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file (PNG, JPG, JPEG, WEBP).');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        setPreviewImage(evt.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function selectSample(url) {
+      // Convert external sample URL to base64 canvas data URL to avoid CORS during Gemini payload preparation
+      const img = new Image();
+      img.crossOrigin = 'Anonymous';
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setPreviewImage(dataUrl);
+      };
+      img.src = url;
+    }
+
+    // Handle window resize to re-align landmark canvas over preview image
+    function handleCanvasResize() {
+      if (currentImageBase64 && !document.getElementById('previewContainer').classList.contains('hidden')) {
+        drawLandmarksOnPreview();
+      }
+    }
+
+    // Load face-api models asynchronously with robust fallback loading
+    async function loadFaceModels() {
+      try {
+        const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.12/model/';
+        await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+        await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+        await faceapi.nets.ageGenderNet.loadFromUri(MODEL_URL);
+        modelsLoaded = true;
+        console.log("Face API Neural Models Loaded Successfully.");
+        if (currentImageBase64) {
+          drawLandmarksOnPreview();
+        }
+      } catch (err) {
+        console.warn("Local face tracking model load issue:", err);
+      }
+    }
+
+    function saveApiKey() {
+      const key = document.getElementById('apiKeyInput').value.trim();
+      if (key) {
+        localStorage.setItem('gemini_api_key', key);
+        alert('API Key saved successfully!');
+      } else {
+        localStorage.removeItem('gemini_api_key');
+        alert('API Key cleared.');
+      }
+    }
+
+    // DOM Elements
+    const previewContainer = document.getElementById('previewContainer');
+    const previewImage = document.getElementById('previewImage');
+    const previewPlaceholder = document.getElementById('previewPlaceholder');
+    const imageDimensions = document.getElementById('imageDimensions');
+    const analyzeBtn = document.getElementById('analyzeBtn');
+    const scannerOverlay = document.getElementById('scannerOverlay');
+
+    // Set Preview Image in Preview Canvas area and render facial landmarks overlay
+    function setPreviewImage(dataUrl) {
+      currentImageBase64 = dataUrl;
+      previewImage.src = dataUrl;
+      previewContainer.classList.remove('hidden');
+      previewPlaceholder.classList.add('hidden');
+      analyzeBtn.disabled = false;
+
+      previewImage.onload = function () {
+        imageDimensions.innerText = `${previewImage.naturalWidth} x ${previewImage.naturalHeight} px`;
+        drawLandmarksOnPreview();
+      };
+    }
+
+    // Draw bounding box and 68 facial landmark dots on uploaded or sample image preview
+    async function drawLandmarksOnPreview() {
+      const canvas = document.getElementById('previewLandmarkCanvas');
+      const ctx = canvas.getContext('2d');
+      const exportContainer = document.getElementById('exportLandmarksContainer');
+
+      if (!previewImage.complete || previewImage.naturalWidth === 0) return;
+
+      // Align landmark overlay canvas dimensions exactly to the rendered preview image dimensions
+      const displayWidth = previewImage.clientWidth;
+      const displayHeight = previewImage.clientHeight;
+      canvas.width = displayWidth;
+      canvas.height = displayHeight;
+
+      // Position canvas over image
+      canvas.style.left = previewImage.offsetLeft + 'px';
+      canvas.style.top = previewImage.offsetTop + 'px';
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (!modelsLoaded) return;
+
+      try {
+        const detections = await faceapi.detectAllFaces(previewImage, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.2 }))
+          .withFaceLandmarks()
+          .withAgeAndGender()
+          .withFaceExpressions();
+
+        if (detections.length === 0) {
+          lastDetectedLandmarks = [];
+          exportContainer.classList.add('hidden');
+          return;
+        }
+
+        const displaySize = { width: displayWidth, height: displayHeight };
+        const resizedDetections = faceapi.resizeResults(detections, displaySize);
+
+        // Store resized landmark predictions for export rendering
+        lastDetectedLandmarks = resizedDetections;
+        exportContainer.classList.remove('hidden');
+        exportContainer.classList.add('flex');
+
+        resizedDetections.forEach(detection => {
+          const { box } = detection.detection;
+          const landmarks = detection.landmarks.positions;
+
+          // Glowing face target box
+          ctx.strokeStyle = '#6366f1';
+          ctx.lineWidth = 2;
+          ctx.shadowColor = '#818cf8';
+          ctx.shadowBlur = 8;
+          ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+          // Target crosshair corner brackets
+          const cornerSize = Math.min(18, box.width / 4);
+          ctx.strokeStyle = '#ec4899';
+          ctx.lineWidth = 3;
+          // Top Left
+          ctx.beginPath(); ctx.moveTo(box.x, box.y + cornerSize); ctx.lineTo(box.x, box.y); ctx.lineTo(box.x + cornerSize, box.y); ctx.stroke();
+          // Top Right
+          ctx.beginPath(); ctx.moveTo(box.x + box.width - cornerSize, box.y); ctx.lineTo(box.x + box.width, box.y); ctx.lineTo(box.x + box.width, box.y + cornerSize); ctx.stroke();
+          // Bottom Left
+          ctx.beginPath(); ctx.moveTo(box.x, box.y + box.height - cornerSize); ctx.lineTo(box.x, box.y + box.height); ctx.lineTo(box.x + cornerSize, box.y + box.height); ctx.stroke();
+          // Bottom Right
+          ctx.beginPath(); ctx.moveTo(box.x + box.width - cornerSize, box.y + box.height); ctx.lineTo(box.x + box.width, box.y + box.height); ctx.lineTo(box.x + box.width, box.y + box.height - cornerSize); ctx.stroke();
+
+          // Draw 68 Facial Landmark Dots
+          ctx.shadowBlur = 4;
+          ctx.shadowColor = '#06b6d4';
+          ctx.fillStyle = '#22d3ee';
+          landmarks.forEach(point => {
+            ctx.beginPath();
+            ctx.arc(point.x, point.y, 2, 0, 2 * Math.PI);
+            ctx.fill();
+          });
+
+          // Age & Gender Tag Overlay Badge above box
+          const age = Math.round(detection.age);
+          const gender = detection.gender;
+          const genderProb = Math.round(detection.genderProbability * 100);
+          const labelText = `${gender.toUpperCase()} ~${age}y (${genderProb}%)`;
+
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+          ctx.shadowBlur = 0;
+          const textWidth = ctx.measureText(labelText).width;
+          const labelY = box.y - 25 > 0 ? box.y - 25 : box.y;
+          ctx.fillRect(box.x, labelY, textWidth + 16, 22);
+
+          ctx.fillStyle = '#67e8f9';
+          ctx.font = 'bold 11px Inter, sans-serif';
+          ctx.fillText(labelText, box.x + 8, labelY + 15);
+
+          // Update results panel with initial client-side findings
+          updateRealtimeResult(age, gender, genderProb, detection.expressions);
+        });
+
+      } catch (err) {
+        console.warn("Error drawing landmark tracking on preview:", err);
+      }
+    }
+
+    // Function to render and download clean PNG with only landmark dots and mesh lines
+    function exportLandmarkDotsPNG() {
+      if (!lastDetectedLandmarks || lastDetectedLandmarks.length === 0) {
+        alert('No facial landmarks detected to export. Please snap or upload a photo with a clear face first.');
+        return;
+      }
+
+      // Ensure we get valid dimensions (fallback to natural image dimensions if client dimensions are zero)
+      const displayWidth = previewImage.clientWidth || previewImage.naturalWidth || 640;
+      const displayHeight = previewImage.clientHeight || previewImage.naturalHeight || 480;
+
+      // Off-screen canvas matching the preview overlay dimensions
+      const exportCanvas = document.createElement('canvas');
+      exportCanvas.width = displayWidth;
+      exportCanvas.height = displayHeight;
+      const ctx = exportCanvas.getContext('2d');
+
+      const bgStyle = document.getElementById('exportBgStyle').value;
+
+      // Fill Background
+      if (bgStyle === 'black') {
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, displayWidth, displayHeight);
+      } else if (bgStyle === 'grid') {
+        ctx.fillStyle = '#090d16';
+        ctx.fillRect(0, 0, displayWidth, displayHeight);
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.2)';
+        ctx.lineWidth = 1;
+        const gridSize = 20;
+        for (let x = 0; x < displayWidth; x += gridSize) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, displayHeight); ctx.stroke();
+        }
+        for (let y = 0; y < displayHeight; y += gridSize) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(displayWidth, y); ctx.stroke();
+        }
+      } else {
+        // Transparent
+        ctx.clearRect(0, 0, displayWidth, displayHeight);
+      }
+
+      lastDetectedLandmarks.forEach(detection => {
+        const landmarks = detection.landmarks.positions;
+        const box = detection.detection.box;
+
+        // Draw bounding box
+        ctx.strokeStyle = '#6366f1';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(box.x, box.y, box.width, box.height);
+
+        // Helper to connect landmark points
+        const connectPoints = (indices, closePath = false) => {
+          ctx.beginPath();
+          indices.forEach((idx, i) => {
+            const pt = landmarks[idx];
+            if (i === 0) ctx.moveTo(pt.x, pt.y);
+            else ctx.lineTo(pt.x, pt.y);
+          });
+          if (closePath) ctx.closePath();
+          ctx.strokeStyle = 'rgba(34, 211, 238, 0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        };
+
+        // Draw mesh lines connecting key facial features
+        connectPoints([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]); // Jaw
+        connectPoints([17,18,19,20,21]); // Eyebrow L
+        connectPoints([22,23,24,25,26]); // Eyebrow R
+        connectPoints([27,28,29,30]); // Nose Bridge
+        connectPoints([31,32,33,34,35]); // Nose Base
+        connectPoints([36,37,38,39,40,41], true); // Eye L
+        connectPoints([42,43,44,45,46,47], true); // Eye R
+        connectPoints([48,49,50,51,52,53,54,55,56,57,58,59], true); // Outer Lips
+        connectPoints([60,61,62,63,64,65,66,67], true); // Inner Lips
+
+        // Draw landmark dots
+        landmarks.forEach(point => {
+          ctx.fillStyle = '#22d3ee';
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 2.5, 0, 2 * Math.PI);
+          ctx.fill();
+        });
+      });
+
+      // Trigger file download using reliable canvas blob data URL conversion
+      try {
+        exportCanvas.toBlob((blob) => {
+          if (!blob) {
+            alert("Export error: Unable to create image file.");
+            return;
+          }
+          const blobUrl = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.download = `facial-landmark-mesh-${Date.now()}.png`;
+          link.href = blobUrl;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+        }, 'image/png');
+      } catch (e) {
+        console.error("Export download failed:", e);
+        alert("Failed to download PNG export.");
+      }
+    }
+
+    // Initialize Real-Time Live Webcam Face Tracking
+    async function initWebcam() {
+      const video = document.getElementById('webcamVideo');
+      const placeholder = document.getElementById('webcamPlaceholder');
+      const startBtn = document.getElementById('startCamBtn');
+      const captureBtn = document.getElementById('captureCamBtn');
+      const liveBadge = document.getElementById('liveTrackBadge');
+
+      try {
+        webcamStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
+        });
+        video.srcObject = webcamStream;
+        video.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        captureBtn.disabled = false;
+        liveBadge.classList.remove('hidden');
+        startBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop Live Tracking`;
+        startBtn.onclick = stopWebcam;
+
+        video.onloadeddata = () => {
+          video.play();
+          startRealtimeTracking(video);
+        };
+      } catch (err) {
+        console.error('Webcam error:', err);
+        alert('Could not access camera. Please verify permissions or use file upload.');
+      }
+    }
+
+    // Real-time optimized detector loop for live camera face tracking
+    function startRealtimeTracking(video) {
+      const canvas = document.getElementById('trackingCanvas');
+      isTracking = true;
+
+      trackingInterval = setInterval(async () => {
+        if (!isTracking || video.paused || video.ended) return;
+
+        const displaySize = { width: video.clientWidth || 640, height: video.clientHeight || 480 };
+        if (canvas.width !== displaySize.width || canvas.height !== displaySize.height) {
+          faceapi.matchDimensions(canvas, displaySize);
+        }
+
+        const ctx = canvas.getContext('2d');
+
+        if (modelsLoaded) {
+          try {
+            // Highly sensitive tinyFaceDetector parameters for instant detection
+            const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 });
+            const detections = await faceapi.detectAllFaces(video, options)
+              .withFaceLandmarks()
+              .withAgeAndGender()
+              .withFaceExpressions();
+
+            const resizedDetections = faceapi.resizeResults(detections, displaySize);
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('trackedFacesCount').innerText = resizedDetections.length;
+
+            resizedDetections.forEach(detection => {
+              const { box } = detection.detection;
+              // Mirror bounding box horizontally since video element is CSS mirrored
+              const mirroredX = displaySize.width - box.x - box.width;
+
+              // Glowing face target frame
+              ctx.strokeStyle = '#6366f1';
+              ctx.lineWidth = 2;
+              ctx.shadowColor = '#818cf8';
+              ctx.shadowBlur = 8;
+              ctx.strokeRect(mirroredX, box.y, box.width, box.height);
+
+              // Target crosshair corners
+              const cornerSize = Math.min(18, box.width / 4);
+              ctx.strokeStyle = '#ec4899';
+              ctx.lineWidth = 3;
+              // Top Left
+              ctx.beginPath(); ctx.moveTo(mirroredX, box.y + cornerSize); ctx.lineTo(mirroredX, box.y); ctx.lineTo(mirroredX + cornerSize, box.y); ctx.stroke();
+              // Top Right
+              ctx.beginPath(); ctx.moveTo(mirroredX + box.width - cornerSize, box.y); ctx.lineTo(mirroredX + box.width, box.y); ctx.lineTo(mirroredX + box.width, box.y + cornerSize); ctx.stroke();
+              // Bottom Left
+              ctx.beginPath(); ctx.moveTo(mirroredX, box.y + box.height - cornerSize); ctx.lineTo(mirroredX, box.y + box.height); ctx.lineTo(mirroredX + cornerSize, box.y + box.height); ctx.stroke();
+              // Bottom Right
+              ctx.beginPath(); ctx.moveTo(mirroredX + box.width - cornerSize, box.y + box.height); ctx.lineTo(mirroredX + box.width, box.y + box.height); ctx.lineTo(mirroredX + box.width, box.y + box.height - cornerSize); ctx.stroke();
+
+              // Age & Gender Tag Overlay
+              const age = Math.round(detection.age);
+              const gender = detection.gender;
+              const genderProb = Math.round(detection.genderProbability * 100);
+              const labelText = `${gender.toUpperCase()} ~${age}y (${genderProb}%)`;
+
+              ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+              ctx.shadowBlur = 0;
+              const textWidth = ctx.measureText(labelText).width;
+              const labelY = box.y - 25 > 0 ? box.y - 25 : box.y;
+              ctx.fillRect(mirroredX, labelY, textWidth + 16, 22);
+
+              ctx.fillStyle = '#67e8f9';
+              ctx.font = 'bold 11px Inter, sans-serif';
+              ctx.fillText(labelText, mirroredX + 8, labelY + 15);
+
+              // Live estimation update
+              updateRealtimeResult(age, gender, genderProb, detection.expressions);
+            });
+          } catch (err) {
+            console.error("Tracking frame error:", err);
+          }
+        }
+      }, 120);
+    }
+
+    // Stop Webcam stream & live tracking
+    function stopWebcam() {
+      isTracking = false;
+      if (trackingInterval) clearInterval(trackingInterval);
+
+      if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+        webcamStream = null;
+      }
+      const video = document.getElementById('webcamVideo');
+      const placeholder = document.getElementById('webcamPlaceholder');
+      const startBtn = document.getElementById('startCamBtn');
+      const captureBtn = document.getElementById('captureCamBtn');
+      const liveBadge = document.getElementById('liveTrackBadge');
+
+      const canvas = document.getElementById('trackingCanvas');
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      video.classList.add('hidden');
+      placeholder.classList.remove('hidden');
+      captureBtn.disabled = true;
+      liveBadge.classList.add('hidden');
+      startBtn.innerHTML = `<i class="fa-solid fa-power-off"></i> Start Live Tracking`;
+      startBtn.onclick = initWebcam;
+    }
+
+    // Capture Image from Webcam for Deep Gemini Analysis
+    function captureWebcam() {
+      const video = document.getElementById('webcamVideo');
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 640;
+      canvas.height = video.videoHeight || 480;
+      const ctx = canvas.getContext('2d');
+      // Un-mirror image on capture
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      setPreviewImage(dataUrl);
+    }
+
+    // Update UI dynamically during real-time live camera tracking
+    function updateRealtimeResult(age, gender, genderProb, expressions) {
+      document.getElementById('emptyResultState').classList.add('hidden');
+      const populatedResults = document.getElementById('populatedResults');
+      populatedResults.classList.remove('hidden');
+      populatedResults.classList.add('flex');
+
+      document.getElementById('resAge').innerText = age;
+      document.getElementById('resAgeRange').innerText = `(${Math.max(1, age - 3)} - ${age + 3} yrs)`;
+
+      const genderFormatted = gender.charAt(0).toUpperCase() + gender.slice(1);
+      document.getElementById('resGender').innerText = genderFormatted;
+      document.getElementById('resGenderConf').innerText = `(${genderProb}%)`;
+
+      const icon = document.getElementById('resGenderIcon');
+      const iconBg = document.getElementById('resGenderIconBg');
+      if (gender === 'female') {
+        icon.className = 'fa-solid fa-venus text-pink-400';
+        iconBg.className = 'w-12 h-12 rounded-xl bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-xl font-bold';
+      } else {
+        icon.className = 'fa-solid fa-mars text-indigo-400';
+        iconBg.className = 'w-12 h-12 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xl font-bold';
+      }
+
+      const maleProb = gender === 'male' ? genderProb : 100 - genderProb;
+      const femaleProb = gender === 'female' ? genderProb : 100 - genderProb;
+
+      document.getElementById('labelMale').innerText = `Male Probability: ${maleProb}%`;
+      document.getElementById('labelFemale').innerText = `Female Probability: ${femaleProb}%`;
+      document.getElementById('barMale').style.width = `${maleProb}%`;
+      document.getElementById('barFemale').style.width = `${femaleProb}%`;
+
+      // Expression detection from tracking model
+      let dominantExpr = 'Neutral';
+      if (expressions) {
+        let maxVal = 0;
+        for (const [expr, val] of Object.entries(expressions)) {
+          if (val > maxVal) { maxVal = val; dominantExpr = expr; }
+        }
+      }
+      document.getElementById('traitExpression').innerText = dominantExpr.charAt(0).toUpperCase() + dominantExpr.slice(1);
+      document.getElementById('traitVibe').innerText = 'Live Feed Stream';
+      document.getElementById('traitEyewear').innerText = 'Detected on Cam';
+      document.getElementById('resReasoning').innerText = 'Real-time face tracking active. Click "Snap & Deep AI" or "Deep AI Reason & Vision Report" for complete multimodal reasoning.';
+    }
+
+    // Call Gemini Multimodal Vision API for full detailed reasoning report
+    async function analyzeImage() {
+      if (!currentImageBase64) return;
+
+      const apiKey = document.getElementById('apiKeyInput').value.trim() || localStorage.getItem('gemini_api_key') || '';
+      
+      // Show loading scanner overlay
+      scannerOverlay.classList.remove('hidden');
+      analyzeBtn.disabled = true;
+
+      try {
+        const matches = currentImageBase64.match(/^data:(image\/[a-zA-Z]+);base64,(.+)$/);
+        if (!matches || matches.length !== 3) {
+          throw new Error('Invalid image format.');
+        }
+
+        const mimeType = matches[1];
+        const base64Data = matches[2];
+
+        if (!apiKey) {
+          // Fallback to client-side faceapi if no Gemini API key provided
+          try {
+            if (!modelsLoaded) {
+              await loadFaceModels();
+            }
+            const img = await faceapi.fetchImage(currentImageBase64);
+            const detection = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.2 }))
+              .withAgeAndGender()
+              .withFaceExpressions();
+            
+            if (!detection) {
+              alert("No clear face detected. Try repositioning or using a clearer portrait.");
+            } else {
+              updateRealtimeResult(Math.round(detection.age), detection.gender, Math.round(detection.genderProbability * 100), detection.expressions);
+              document.getElementById('resReasoning').innerText = "Client-side neural network analysis completed. Enter a Gemini API key at the top for deep multimodal reasoning.";
+            }
+          } catch (localErr) {
+            console.error("Local face tracking error:", localErr);
+            alert("Could not process image locally. Please try uploading a different photo format.");
+          }
+          scannerOverlay.classList.add('hidden');
+          analyzeBtn.disabled = false;
+          return;
+        }
+
+        const systemPrompt = "Analyze the provided face portrait in the image. Return structured prediction estimation for age, gender probability breakdown, and prominent facial attributes. If no face is detected, set faceDetected to false.";
+        const userPrompt = "Predict age, gender confidence percentages, facial expression, eyewear status, apparent overall vibe/style, and a concise reason for the age estimate based on visible facial cues.";
+
+        const payload = {
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { text: userPrompt },
+                {
+                  inlineData: {
+                    mimeType: mimeType,
+                    data: base64Data
+                  }
+                }
+              ]
+            }
+          ],
+          systemInstruction: {
+            parts: [{ text: systemPrompt }]
+          },
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                faceDetected: { type: "BOOLEAN" },
+                estimatedAge: { type: "NUMBER" },
+                ageRangeMin: { type: "NUMBER" },
+                ageRangeMax: { type: "NUMBER" },
+                gender: { type: "STRING" },
+                genderConfidencePercent: { type: "NUMBER" },
+                maleProbabilityPercent: { type: "NUMBER" },
+                femaleProbabilityPercent: { type: "NUMBER" },
+                expression: { type: "STRING" },
+                eyewear: { type: "STRING" },
+                vibeStyle: { type: "STRING" },
+                reasoningSummary: { type: "STRING" }
+              },
+              required: ["faceDetected", "estimatedAge", "gender"]
+            }
+          }
+        };
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error?.message || `API returned status ${response.status}`);
+        }
+
+        const result = await response.json();
+        const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!jsonText) {
+          throw new Error('Failed to retrieve structured visual predictions.');
+        }
+
+        const data = JSON.parse(jsonText);
+        renderResults(data);
+
+      } catch (err) {
+        console.error(err);
+        // Provide clear feedback if running inside an interactive frame/sandbox
+        alert('API Request Note: ' + err.message + '\n\nIf you are using this in an interactive preview, ensure your API key is valid or rely on the instant local detection mode.');
+      } finally {
+        scannerOverlay.classList.add('hidden');
+        analyzeBtn.disabled = false;
+      }
+    }
+
+    // Render Gemini Results in UI
+    function renderResults(data) {
+      const emptyState = document.getElementById('emptyResultState');
+      const populatedResults = document.getElementById('populatedResults');
+
+      if (!data.faceDetected) {
+        alert('No clear human face was detected in this image. Please upload a clear portrait photo or center your face in the camera.');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      populatedResults.classList.remove('hidden');
+      populatedResults.classList.add('flex');
+
+      document.getElementById('resAge').innerText = Math.round(data.estimatedAge);
+      document.getElementById('resAgeRange').innerText = `(${data.ageRangeMin} - ${data.ageRangeMax} yrs)`;
+
+      const gender = data.gender || 'Detected';
+      document.getElementById('resGender').innerText = gender;
+      document.getElementById('resGenderConf').innerText = `(${data.genderConfidencePercent || 90}%)`;
+
+      const icon = document.getElementById('resGenderIcon');
+      const iconBg = document.getElementById('resGenderIconBg');
+      if (gender.toLowerCase().includes('female')) {
+        icon.className = 'fa-solid fa-venus text-pink-400';
+        iconBg.className = 'w-12 h-12 rounded-xl bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-xl font-bold';
+      } else if (gender.toLowerCase().includes('male')) {
+        icon.className = 'fa-solid fa-mars text-indigo-400';
+        iconBg.className = 'w-12 h-12 rounded-xl bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-xl font-bold';
+      } else {
+        icon.className = 'fa-solid fa-genderless text-purple-400';
+        iconBg.className = 'w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-xl font-bold';
+      }
+
+      const maleProb = Math.min(100, Math.max(0, data.maleProbabilityPercent || 50));
+      const femaleProb = Math.min(100, Math.max(0, data.femaleProbabilityPercent || (100 - maleProb)));
+
+      document.getElementById('labelMale').innerText = `Male Probability: ${Math.round(maleProb)}%`;
+      document.getElementById('labelFemale').innerText = `Female Probability: ${Math.round(femaleProb)}%`;
+      document.getElementById('barMale').style.width = `${maleProb}%`;
+      document.getElementById('barFemale').style.width = `${femaleProb}%`;
+
+      document.getElementById('traitExpression').innerText = data.expression || 'Neutral';
+      document.getElementById('traitVibe').innerText = data.vibeStyle || 'Natural';
+      document.getElementById('traitEyewear').innerText = data.eyewear || 'None';
+
+      document.getElementById('resReasoning').innerText = data.reasoningSummary || 'Key facial structure and line characteristics analyzed.';
+    }
+  </script>
+</body>
+</html>
