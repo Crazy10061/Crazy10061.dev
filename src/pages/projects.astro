@@ -1,0 +1,27 @@
+---
+import Base from "../layouts/Base.astro";
+import Tree from "../components/Tree.astro";
+
+const projects = [
+  {
+    name: "Create Aeronautics: Structures",
+    text: "An okay Minecraft mod.",
+    href: "https://modrinth.com/project/PZIWeQhv",
+  },
+  {
+    name: "A Bot",
+    text: "A Simple Discord Bot",
+    href: "/publicity",
+  },
+  {
+    name: "Frog Linux",
+    text: "a Linux distro inspired by frogs",
+    href: "https://frog-linux.com/",
+  }
+]
+---
+
+<Base title="Projects · Crazy10061" description="Projects by Crazy10061.">
+  <h1 class="title">Projects</h1>
+  <Tree root="Crazy10061" items={projects} />
+</Base>

@@ -1,0 +1,68 @@
+---
+const links = [
+  { href: "/projects/", label: "Projects" },
+  { href: "/about/", label: "About" },
+  { href: "https://github.com/Crazy10061", label: "GitHub" },
+];
+const path = Astro.url.pathname;
+---
+
+<header class="frame">
+  <div class="bar">
+  <a class="home" href="/">Crazy10061.dev</a>
+  <nav aria-label="Main">
+    <ul>
+      {
+        links.map(({ href, label }) => (
+          <li>
+            <a href={href} aria-current={path === href ? "page" : undefined}>
+              {label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </nav>
+  </div>
+</header>
+
+<style>
+  .bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem 2rem;
+    padding-block: 1.5rem;
+    border-bottom: 2px solid var(--deepslate);
+  }
+
+  .home {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+  }
+
+  ul {
+    display: flex;
+    gap: 1.75rem;
+    padding: 0;
+    list-style: none;
+  }
+
+  nav a {
+    text-decoration: none;
+    padding-block: 0.25rem;
+    border-bottom: 3px solid transparent;
+  }
+
+  nav a:hover {
+    border-bottom-color: var(--deepslate);
+  }
+
+  nav a[aria-current="page"] {
+    border-bottom-color: var(--redstone);
+  }
+</style>

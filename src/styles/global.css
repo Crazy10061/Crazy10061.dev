@@ -1,0 +1,126 @@
+
+:root {
+  --stone: #d3d4cc;
+  --deepslate: #1e2025;
+  --cobble: #4b4d48;
+  --seam: #a9aba2;
+  --redstone: #a81f18;
+
+  --font-mono: "Martian Mono Variable", ui-monospace, "SF Mono", Consolas, monospace;
+  --font-text: "Instrument Sans Variable", system-ui, sans-serif;
+
+  --measure: 62rem;
+  --gutter: clamp(1.25rem, 5vw, 3rem);
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+html {
+  font-size: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--stone);
+  color: var(--deepslate);
+  font-family: var(--font-text);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+a {
+  color: inherit;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.2em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--redstone);
+  outline-offset: 3px;
+}
+
+::selection {
+  background: var(--deepslate);
+  color: var(--stone);
+}
+
+
+.frame {
+  width: 100%;
+  max-width: var(--measure);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+main {
+  flex: 1;
+  padding-block: clamp(3rem, 9vw, 6.5rem) clamp(3rem, 8vw, 5rem);
+}
+
+main > * + * {
+  margin-top: clamp(2rem, 5vw, 3.25rem);
+}
+
+
+.title {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: clamp(1.75rem, 5.2vw, 3rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+
+.wordmark {
+  font-family: var(--font-mono);
+  font-weight: 800;
+  font-size: clamp(1.55rem, 7.6vw, 4.9rem);
+  line-height: 1;
+  letter-spacing: -0.055em;
+  white-space: nowrap;
+}
+
+.wordmark .dot {
+  color: var(--redstone);
+}
+
+.lede {
+  max-width: 38rem;
+  text-wrap: pretty;
+  font-size: clamp(1.1rem, 2.2vw, 1.3rem);
+  line-height: 1.55;
+}
+
+.prose {
+  max-width: 38rem;
+  text-wrap: pretty;
+}
+
+.prose > * + * {
+  margin-top: 1.1em;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  letter-spacing: -0.02em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+  }
+}

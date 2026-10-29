@@ -1,0 +1,18 @@
+---
+import Base from "../layouts/Base.astro";
+import Tree from "../components/Tree.astro";
+---
+
+<Base title="Crazy10061">
+  <h1 class="wordmark">crazy10061</h1>
+  <p class="lede">
+    I develop Discord bots, websites and a little mod.
+  </p>
+  <Tree
+    items={[
+      { name: "projects", text: "Some of projects", href: "/projects/" },
+      { name: "about", text: "Who Am I?", href: "/about/" },
+      { name: "github", text: "Source code", href: "https://github.com/Crazy10061", },
+    ]}
+  />
+</Base>

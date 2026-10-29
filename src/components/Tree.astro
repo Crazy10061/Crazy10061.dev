@@ -1,0 +1,119 @@
+---
+/**
+ * A package-tree listing: each row is a link, drawn with tree lines.
+ * The tree glyphs are decoration only and are hidden from screen readers.
+ */
+interface Item {
+  name: string;
+  text: string;
+  href: string;
+}
+
+interface Props {
+  items: Item[];
+  /** Optional root line shown above the branches, e.g. the group id. */
+  root?: string;
+}
+
+const { items, root } = Astro.props;
+const external = (href: string) => /^https?:\/\//.test(href);
+---
+
+{root && <p class="root">{root}</p>}
+<ul class="tree">
+  {
+    items.map((item) => (
+      <li>
+        <a
+          href={item.href}
+          target={external(item.href) ? "_blank" : undefined}
+          rel={external(item.href) ? "noopener" : undefined}
+        >
+          <span class="branch" aria-hidden="true" />
+          <span class="name">{item.name}</span>
+          <span class="text">{item.text}</span>
+        </a>
+      </li>
+    ))
+  }
+</ul>
+
+<style>
+  .root {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 0.95rem;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.75rem;
+  }
+
+  .tree {
+    padding: 0;
+    list-style: none;
+    /* Rows overhang the column so their text lines up with the page text. */
+    margin-inline: -0.75rem;
+    border-top: 1px solid var(--seam);
+  }
+
+  li {
+    border-bottom: 1px solid var(--seam);
+  }
+
+  a {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 15rem) minmax(0, 1fr);
+    align-items: baseline;
+    gap: 0 0.5rem;
+    padding: 1rem 0.75rem;
+    text-decoration: none;
+    transition:
+      background-color 0.12s,
+      color 0.12s;
+  }
+
+  a:hover {
+    background: var(--deepslate);
+    color: var(--stone);
+  }
+
+  .branch::before {
+    content: "├─";
+    font-family: var(--font-mono);
+    color: var(--cobble);
+  }
+
+  li:last-child .branch::before {
+    content: "└─";
+  }
+
+  a:hover .branch::before {
+    color: #e8695d;
+  }
+
+  .name {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 1rem;
+    letter-spacing: -0.03em;
+    overflow-wrap: anywhere;
+  }
+
+  .text {
+    color: var(--cobble);
+  }
+
+  a:hover .text {
+    color: var(--stone);
+  }
+
+  @media (max-width: 40rem) {
+    a {
+      grid-template-columns: 2.25rem minmax(0, 1fr);
+    }
+
+    .text {
+      grid-column: 2;
+      margin-top: 0.15rem;
+    }
+  }
+</style>
