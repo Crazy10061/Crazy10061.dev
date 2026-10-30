@@ -14,6 +14,10 @@ const {
   title,
   description = "Crazy10061",
 } = Astro.props;
+
+const discordEmbed = {
+
+};
 ---
 
 <!doctype html>
@@ -29,6 +33,13 @@ const {
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
+
+    <script
+        id="discord:component-embed"
+        type="application/json"
+        set:html={JSON.stringify(discordEmbed)}
+    />
+
   </head>
   <body>
     <Header />
