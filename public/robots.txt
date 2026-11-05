@@ -1,0 +1,27 @@
+# Allowed: Google search indexing
+User-agent: Googlebot
+Disallow:
+
+# Allowed: DuckDuckGo
+User-agent: DuckDuckBot
+Disallow:
+
+# Allowed: Internet Archive
+User-agent: archive.org_bot
+User-agent: ia_archiver
+Disallow:
+
+# Allowed: Anthropic / Claude
+User-agent: ClaudeBot
+User-agent: Claude-User
+User-agent: Claude-SearchBot
+User-agent: anthropic-ai
+User-agent: Claude-Web
+Disallow:
+
+# Everyone else: only llms.txt
+User-agent: *
+Allow: /llms.txt
+Disallow: /
+
+Sitemap: https://crazy10061.dev/sitemap-index.xml
