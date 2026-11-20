@@ -15,4 +15,9 @@ export default defineConfig({
     },
   })
 ],
+  vite: {
+    optimizeDeps: {
+      include: ['js-dos'],
+    },
+  }
 });
