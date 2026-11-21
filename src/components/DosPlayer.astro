@@ -1,0 +1,458 @@
+---
+/**
+ * DOS game player (DOSBox via js-dos). Drop <DosPlayer /> into any page.
+ *
+ * Needs these static files in public/ (see README):
+ *   public/vendor/js-dos/js-dos.js
+ *   public/vendor/js-dos/emulators/*
+ *   public/games/<your game>.jsdos
+ *
+ * One player per page. All styles are scoped under .dosp so nothing leaks into the site.
+ */
+interface Props {
+  /** Shown in the title bar and on the start screen. */
+  title?: string;
+  /** Small label next to the title, e.g. "MS-DOS". */
+  subtitle?: string;
+  /** Path of the .jsdos bundle, relative to the site root (public/). */
+  bundle?: string;
+  /** Show the controls / notes cards under the player. */
+  showInfo?: boolean;
+}
+
+const {
+  title = "The Oregon Trail",
+  subtitle = "MS-DOS",
+  bundle = "games/oregon-trail.jsdos",
+  showInfo = true,
+} = Astro.props;
+
+// Works with a custom `base` in astro.config as well.
+const base = import.meta.env.BASE_URL.replace(/\/?$/, "/");
+const path = (p: string) => base + p.replace(/^\//, "");
+---
+
+<div
+  class="dosp"
+  data-dosp
+  data-title={title}
+  data-bundle={path(bundle)}
+  data-emulator-path={path("vendor/js-dos/emulators/")}
+>
+  <section class="frame" data-role="frame" aria-label="Game player">
+    <div class="titlebar">
+      <div class="title"><span>{title}</span><i>{subtitle}</i></div>
+      <div class="tools">
+        <button type="button" data-role="btn-keys" aria-pressed="false">&#9000; Keys</button>
+        <button type="button" data-role="btn-restart" disabled>&#8635; Restart</button>
+        <button type="button" data-role="btn-full">&#9974; Fullscreen</button>
+      </div>
+    </div>
+
+    <div class="screen" data-role="screen">
+      <div class="mount" data-role="mount"></div>
+
+      <div class="overlay start" data-role="start">
+        <svg viewBox="0 0 640 480" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+          <circle cx="470" cy="190" r="58" fill="#ffe7a3" opacity=".85"></circle>
+          <path d="M0 300 L90 230 L170 285 L270 205 L380 290 L470 240 L560 290 L640 235 V300Z" fill="#8a5a3c" opacity=".75"></path>
+          <path d="M0 330 L120 285 L230 330 L350 275 L470 330 L580 292 L640 320 V380 H0Z" fill="#6b4630"></path>
+          <g transform="translate(300 300)" fill="#2b1d12">
+            <path d="M0 40 C0 0 20 -22 52 -22 C84 -22 104 0 104 40Z" fill="#f4e9d2"></path>
+            <rect x="-6" y="40" width="120" height="8" rx="3"></rect>
+            <circle cx="22" cy="54" r="14" fill="none" stroke="#2b1d12" stroke-width="5"></circle>
+            <circle cx="88" cy="54" r="14" fill="none" stroke="#2b1d12" stroke-width="5"></circle>
+          </g>
+        </svg>
+        <p class="big-sub">{subtitle} &middot; Play in your browser</p>
+        <h2 class="big-title">{title}</h2>
+        <button type="button" class="play" data-role="btn-play">&#9654; Start the journey</button>
+        <label class="linklike">
+          or open a game file from your computer
+          <input type="file" data-role="file-start" accept=".jsdos,.zip" hidden />
+        </label>
+      </div>
+
+      <div class="overlay status" data-role="status" hidden role="status" aria-live="polite"></div>
+    </div>
+
+    <div class="pad" data-role="pad" hidden aria-label="On-screen keys">
+      <div class="keys" data-role="keys"></div>
+      <div class="dpad" data-role="dpad"></div>
+    </div>
+  </section>
+
+  {showInfo && (
+    <div class="cols">
+      <section class="card" aria-labelledby="dosp-h-controls">
+        <h2 id="dosp-h-controls">Controls</h2>
+        <dl class="legend">
+          <dt><kbd>1</kbd>&ndash;<kbd>9</kbd></dt><dd>Pick a menu option</dd>
+          <dt><kbd>Enter</kbd></dt><dd>Confirm</dd>
+          <dt><kbd>&larr;</kbd><kbd>&rarr;</kbd><kbd>&uarr;</kbd><kbd>&darr;</kbd></dt><dd>Aim when hunting</dd>
+          <dt><kbd>Space</kbd></dt><dd>Fire</dd>
+        </dl>
+      </section>
+      <section class="card" aria-labelledby="dosp-h-notes">
+        <h2 id="dosp-h-notes">Good to know</h2>
+        <p><strong>On a phone or tablet:</strong> tap <em>Keys</em> for on-screen controls. Landscape works best.</p>
+        <p><strong>Saving:</strong> this player doesn&rsquo;t save. Progress lasts only while the tab stays open.</p>
+        <label class="pick"><input type="file" data-role="file-notes" accept=".jsdos,.zip" /><span>Open a different game file&hellip;</span></label>
+      </section>
+    </div>
+  )}
+</div>
+
+<style is:global>
+  .dosp {
+    --paper: #f4e9d2;
+    --paper-2: #ebdcbd;
+    --ink: #2b1d12;
+    --ink-soft: #5d4a38;
+    --wood: #4b301c;
+    --wood-2: #6a4429;
+    --rust: #b04a1f;
+    --cream: #fff6e3;
+    --radius: 14px;
+    color: var(--ink);
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .dosp, .dosp *, .dosp *::before, .dosp *::after { box-sizing: border-box; }
+
+  /* ---- player frame ---- */
+  .dosp .frame {
+    background: var(--wood);
+    border-radius: var(--radius);
+    padding: 0 0 10px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.18) inset, 0 14px 34px rgba(60,34,12,.32);
+    overflow: hidden;
+  }
+  .dosp .titlebar {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 12px 10px 16px;
+    background: linear-gradient(var(--wood-2), var(--wood));
+    color: var(--cream);
+  }
+  .dosp .titlebar .title { font: 700 15px/1.2 ui-serif, Georgia, serif; letter-spacing: .02em; min-width: 0; }
+  .dosp .titlebar .title i { font-style: normal; font-weight: 500; opacity: .7; margin-left: 8px; font-size: 12px; font-family: system-ui, sans-serif; }
+  .dosp .tools { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .dosp .tools button {
+    appearance: none; border: 1px solid rgba(255,246,227,.28); background: rgba(0,0,0,.18);
+    color: var(--cream); font: 600 13px/1 system-ui, sans-serif;
+    padding: 8px 11px; border-radius: 8px; cursor: pointer; margin: 0;
+  }
+  .dosp .tools button:hover { background: rgba(255,246,227,.16); }
+  .dosp .tools button[aria-pressed="true"] { background: var(--cream); color: var(--wood); }
+  .dosp .tools button:disabled { opacity: .4; cursor: default; }
+  .dosp button:focus-visible, .dosp a:focus-visible, .dosp label:focus-within { outline: 3px solid #ffd27a; outline-offset: 2px; }
+
+  .dosp .screen {
+    position: relative;
+    margin: 10px 10px 0;
+    aspect-ratio: 4 / 3;
+    background: #000;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .dosp .mount { position: absolute; inset: 0; }
+  .dosp .mount > div { width: 100%; height: 100%; }
+
+  .dosp .overlay {
+    position: absolute; inset: 0; z-index: 5;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; padding: 24px; text-align: center;
+  }
+  .dosp .overlay[hidden] { display: none; }
+  .dosp .start {
+    background: linear-gradient(#f6c97a 0%, #f0a65a 38%, #d97b3c 62%, #5a6a43 62.2%, #3b4c2f 100%);
+    color: var(--cream);
+  }
+  .dosp .start svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .dosp .start > *:not(svg) { position: relative; }
+  .dosp .big-title { font: 800 clamp(28px, 7.4vw, 62px)/1 ui-serif, Georgia, serif; text-shadow: 0 3px 0 rgba(75,48,28,.75); margin: 0; color: inherit; }
+  .dosp .big-sub { font: 600 clamp(11px, 2vw, 14px)/1 system-ui, sans-serif; letter-spacing: .22em; text-transform: uppercase; margin: -4px 0 4px; text-shadow: 0 1px 0 rgba(75,48,28,.7); }
+  .dosp .play {
+    appearance: none; border: 0; cursor: pointer; margin: 0;
+    background: var(--cream); color: var(--wood);
+    font: 800 clamp(16px, 3vw, 20px)/1 ui-serif, Georgia, serif;
+    padding: 15px 34px; border-radius: 999px;
+    box-shadow: 0 5px 0 var(--wood), 0 12px 24px rgba(0,0,0,.3);
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .dosp .play:hover { transform: translateY(-1px); }
+  .dosp .play:active { transform: translateY(4px); box-shadow: 0 1px 0 var(--wood), 0 4px 10px rgba(0,0,0,.3); }
+  .dosp .linklike {
+    cursor: pointer; padding: 4px 6px;
+    color: var(--cream); font: 600 13px/1.2 system-ui, sans-serif; text-decoration: underline; text-underline-offset: 3px;
+  }
+  .dosp .status { background: rgba(20,12,6,.92); color: var(--cream); }
+  .dosp .status p { max-width: 46ch; margin: 0; }
+  .dosp .status .msg-title { font: 700 20px/1.2 ui-serif, Georgia, serif; }
+  .dosp .status code { background: rgba(255,246,227,.14); padding: 1px 6px; border-radius: 4px; font-size: .92em; }
+  .dosp .spinner { width: 30px; height: 30px; border-radius: 50%; border: 4px solid rgba(255,246,227,.25); border-top-color: var(--cream); animation: dosp-spin .9s linear infinite; }
+  @keyframes dosp-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .dosp .spinner { animation-duration: 3s; } .dosp .play { transition: none; } }
+
+  /* ---- on-screen keys ---- */
+  .dosp .pad {
+    margin: 10px 10px 0; padding: 10px;
+    background: rgba(0,0,0,.22); border-radius: 10px;
+    display: grid; gap: 12px; grid-template-columns: 1fr auto; align-items: center;
+    user-select: none; -webkit-user-select: none; touch-action: manipulation;
+  }
+  .dosp .pad[hidden] { display: none; }
+  .dosp .keys { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .dosp .key {
+    appearance: none; border: 0; cursor: pointer; margin: 0; padding: 0;
+    background: var(--cream); color: var(--wood);
+    font: 700 15px/1 system-ui, sans-serif;
+    min-height: 44px; border-radius: 8px;
+    box-shadow: 0 3px 0 #b9a47d;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dosp .key.on, .dosp .key:active { transform: translateY(2px); box-shadow: 0 1px 0 #b9a47d; background: #ffe9b8; }
+  .dosp .key.wide { grid-column: span 2; }
+  .dosp .key.wide3 { grid-column: span 3; }
+  .dosp .dpad { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(2, 48px); gap: 6px; }
+  .dosp .dpad .up { grid-column: 2; grid-row: 1; }
+  .dosp .dpad .left { grid-column: 1; grid-row: 2; }
+  .dosp .dpad .down { grid-column: 2; grid-row: 2; }
+  .dosp .dpad .right { grid-column: 3; grid-row: 2; }
+  @media (max-width: 560px) { .dosp .pad { grid-template-columns: 1fr; justify-items: center; } .dosp .keys { width: 100%; } }
+
+  /* ---- fullscreen / theater ---- */
+  .dosp .frame:fullscreen, .dosp .frame.theater { border-radius: 0; display: flex; flex-direction: column; padding-bottom: 0; background: #000; }
+  .dosp .frame.theater { position: fixed; inset: 0; z-index: 100; }
+  .dosp .frame:fullscreen .screen, .dosp .frame.theater .screen { flex: 1; margin: 0; aspect-ratio: auto; border-radius: 0; }
+  .dosp .frame:fullscreen .pad, .dosp .frame.theater .pad { margin: 0; border-radius: 0; }
+
+  /* ---- info cards ---- */
+  .dosp .cols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 18px; margin-top: 26px; }
+  @media (max-width: 760px) { .dosp .cols { grid-template-columns: 1fr; } }
+  .dosp .card { background: var(--paper-2); border: 1px solid #d8c59d; border-radius: var(--radius); padding: 18px 20px; }
+  .dosp .card h2 { margin: 0 0 12px; font: 700 20px/1.2 ui-serif, Georgia, serif; color: var(--ink); }
+  .dosp .card p { margin: 0 0 10px; color: var(--ink-soft); }
+  .dosp .card p:last-child { margin-bottom: 0; }
+  .dosp dl.legend { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 9px 14px; align-items: center; }
+  .dosp dl.legend dd { margin: 0; color: var(--ink-soft); }
+  .dosp dl.legend dt { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+  .dosp kbd {
+    display: inline-block; min-width: 28px; text-align: center;
+    padding: 3px 7px; border-radius: 6px;
+    background: var(--cream); border: 1px solid #c7b389; border-bottom-width: 3px;
+    font: 700 12px/1.2 ui-monospace, Menlo, Consolas, monospace; color: var(--wood);
+  }
+  .dosp .pick { display: inline-block; margin-top: 8px; position: relative; }
+  .dosp .pick input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+  .dosp .pick span {
+    display: inline-block; cursor: pointer; font: 600 14px/1 system-ui, sans-serif;
+    padding: 10px 14px; border-radius: 8px; background: var(--wood); color: var(--cream);
+  }
+</style>
+
+<!-- The emulator script is a classic script served from public/, so it must stay inline (not bundled). -->
+<script is:inline src={path("vendor/js-dos/js-dos.js")}></script>
+
+<script is:inline>
+(function () {
+  "use strict";
+
+  var root = document.querySelector("[data-dosp]");
+  if (!root) return;
+  var GAME = {
+    title: root.dataset.title || "DOS game",
+    bundle: root.dataset.bundle,
+    emulatorPath: root.dataset.emulatorPath
+  };
+
+  var $ = function (role) { return root.querySelector('[data-role="' + role + '"]'); };
+  var frame = $("frame"), screenEl = $("screen"), mount = $("mount"), statusEl = $("status"), startEl = $("start");
+  var btnKeys = $("btn-keys"), btnRestart = $("btn-restart"), btnFull = $("btn-full");
+  var padEl = $("pad");
+
+  var player = null;      // js-dos player instance
+  var ci = null;          // command interface (key events go here)
+  var lastSource = null;  // URL string or File, for Restart
+  var objectUrl = null;
+  var bootId = 0;
+
+  // GLFW-style key codes used by js-dos
+  var K = { ENTER: 257, SPACE: 32, ESC: 256, UP: 265, DOWN: 264, LEFT: 263, RIGHT: 262 };
+  function digit(n) { return 48 + n; }
+  function letter(c) { return c.toUpperCase().charCodeAt(0); }
+
+  // ---- status overlay -------------------------------------------------------
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; }); }
+  function showStatus(html) { statusEl.innerHTML = html; statusEl.hidden = false; }
+  function hideStatus() { statusEl.hidden = true; statusEl.innerHTML = ""; }
+  function showLoading(text) { showStatus('<div class="spinner" aria-hidden="true"></div><p>' + esc(text) + "</p>"); }
+  function showProblem(title, body) {
+    showStatus('<p class="msg-title">' + esc(title) + "</p><p>" + body + '</p><button type="button" class="play" data-role="status-back">Back</button>');
+    statusEl.querySelector('[data-role="status-back"]').addEventListener("click", reset);
+  }
+
+  // ---- emulator lifecycle ---------------------------------------------------
+  function bundleReachable(src) {
+    return fetch(src, { cache: "no-store" }).then(function (r) {
+      var type = r.headers.get("content-type") || "";
+      if (r.body && r.body.cancel) { try { r.body.cancel(); } catch (e) {} }
+      return r.ok && type.indexOf("text/html") === -1;   // some hosts answer 200 + HTML for missing files
+    }).catch(function () { return false; });
+  }
+
+  function teardown() {
+    ci = null;
+    var p = player; player = null;
+    try { if (p && p.stop) { var r = p.stop(); if (r && r.catch) r.catch(function () {}); } } catch (e) {}
+    while (mount.firstChild) mount.removeChild(mount.firstChild);
+    if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+  }
+
+  function reset() {
+    bootId++;
+    teardown();
+    hideStatus();
+    startEl.hidden = false;
+    btnRestart.disabled = true;
+  }
+
+  function boot(source) {
+    var id = ++bootId;
+    teardown();
+    lastSource = source;
+    startEl.hidden = true;
+    btnRestart.disabled = false;
+    showLoading("Loading the emulator…");
+
+    var ready;
+    if (typeof File !== "undefined" && source instanceof File) {
+      objectUrl = URL.createObjectURL(source);
+      ready = Promise.resolve(objectUrl);
+    } else {
+      ready = bundleReachable(source).then(function (ok) {
+        if (!ok) throw { missing: source };
+        return new URL(source, document.baseURI).href;
+      });
+    }
+
+    ready.then(function (url) {
+      if (id !== bootId) return;
+      if (typeof window.Dos !== "function") throw new Error("The emulator script did not load.");
+      player = window.Dos(mount, {
+        url: url,
+        backend: "dosbox",
+        pathPrefix: new URL(GAME.emulatorPath, document.baseURI).href,
+        autoStart: true,
+        kiosk: true,
+        imageRendering: "pixelated",
+        renderAspect: "4/3",
+        onEvent: function (ev, arg) {
+          if (id !== bootId) return;
+          if (ev === "ci-ready") { ci = arg; hideStatus(); focusGame(); }
+          else if (ev === "bnd-play") { hideStatus(); }
+          else if (ev === "bnd-error" || ev === "emu-error") {
+            showProblem("Couldn’t start the game", esc(arg && arg.message ? arg.message : (arg || "The emulator reported an error.")));
+          }
+        }
+      });
+    }).catch(function (err) {
+      if (id !== bootId) return;
+      if (err && err.missing) {
+        showProblem("No game file found",
+          "Nothing was found at <code>" + esc(err.missing) + "</code>. Add your game bundle there, or open one from your computer.");
+      } else {
+        showProblem("Couldn’t start the emulator", esc(err && err.message ? err.message : err));
+      }
+    });
+  }
+
+  function focusGame() {
+    var c = mount.querySelector("canvas");
+    if (c) { c.tabIndex = 0; try { c.focus({ preventScroll: true }); } catch (e) {} }
+  }
+
+  // ---- on-screen keys -------------------------------------------------------
+  var held = {};
+  function press(code, el) {
+    if (!ci || held[code]) return;
+    held[code] = Date.now();
+    el.classList.add("on");
+    ci.sendKeyEvent(code, true);
+  }
+  function release(code, el) {
+    if (!held[code]) return;
+    var wait = Math.max(0, 70 - (Date.now() - held[code]));   // keep taps long enough for DOS to see them
+    delete held[code];
+    el.classList.remove("on");
+    setTimeout(function () { if (ci) ci.sendKeyEvent(code, false); }, wait);
+  }
+  function makeKey(label, code, cls, aria) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "key" + (cls ? " " + cls : "");
+    b.textContent = label;
+    if (aria) b.setAttribute("aria-label", aria);
+    b.addEventListener("pointerdown", function (e) { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch (x) {} press(code, b); });
+    ["pointerup", "pointercancel", "lostpointercapture"].forEach(function (t) { b.addEventListener(t, function () { release(code, b); }); });
+    b.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); if (!e.repeat) press(code, b); } });
+    b.addEventListener("keyup", function (e) { if (e.key === "Enter" || e.key === " ") release(code, b); });
+    return b;
+  }
+  (function buildPad() {
+    var keys = $("keys"), dpad = $("dpad");
+    for (var n = 1; n <= 9; n++) keys.appendChild(makeKey(String(n), digit(n)));
+    keys.appendChild(makeKey("0", digit(0)));
+    keys.appendChild(makeKey("Enter", K.ENTER, "wide"));
+    keys.appendChild(makeKey("Space", K.SPACE, "wide3"));
+    keys.appendChild(makeKey("Y", letter("Y")));
+    keys.appendChild(makeKey("N", letter("N")));
+    keys.appendChild(makeKey("Esc", K.ESC, "wide3"));
+    dpad.appendChild(makeKey("▲", K.UP, "up", "Up"));
+    dpad.appendChild(makeKey("◀", K.LEFT, "left", "Left"));
+    dpad.appendChild(makeKey("▼", K.DOWN, "down", "Down"));
+    dpad.appendChild(makeKey("▶", K.RIGHT, "right", "Right"));
+  })();
+
+  function setPad(show) {
+    padEl.hidden = !show;
+    btnKeys.setAttribute("aria-pressed", String(show));
+  }
+  btnKeys.addEventListener("click", function () { setPad(padEl.hidden); });
+  if (window.matchMedia && matchMedia("(pointer: coarse)").matches) setPad(true);
+
+  // ---- fullscreen (falls back to a fill-the-window mode if the browser refuses) ----
+  function setFullLabel() {
+    var on = document.fullscreenElement === frame || frame.classList.contains("theater");
+    btnFull.innerHTML = on ? "&#10005; Exit fullscreen" : "&#9974; Fullscreen";
+  }
+  btnFull.addEventListener("click", function () {
+    if (frame.classList.contains("theater")) { frame.classList.remove("theater"); setFullLabel(); return; }
+    if (document.fullscreenElement) { document.exitFullscreen(); return; }
+    var req = frame.requestFullscreen && frame.requestFullscreen();
+    if (req && req.catch) req.catch(function () { frame.classList.add("theater"); setFullLabel(); });
+    else if (!req) { frame.classList.add("theater"); setFullLabel(); }
+  });
+  document.addEventListener("fullscreenchange", function () { setFullLabel(); focusGame(); });
+
+  // ---- wiring ---------------------------------------------------------------
+  $("btn-play").addEventListener("click", function () { boot(GAME.bundle); });
+  btnRestart.addEventListener("click", function () { if (lastSource) boot(lastSource); });
+  function fromInput(e) {
+    var f = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (f) boot(f);
+  }
+  $("file-start").addEventListener("change", fromInput);
+  var notesPick = $("file-notes");
+  if (notesPick) notesPick.addEventListener("change", fromInput);
+
+  // Keep arrows/space from scrolling the page while the game has focus.
+  window.addEventListener("keydown", function (e) {
+    if (!player) return;
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].indexOf(e.key) !== -1 &&
+        screenEl.contains(document.activeElement)) e.preventDefault();
+  }, { passive: false });
+
+  // Handy for debugging in the console.
+  window.__dosPlayer = { boot: boot, reset: reset, get ci() { return ci; } };
+})();
+</script>

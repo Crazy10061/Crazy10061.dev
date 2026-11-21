@@ -1,0 +1,64 @@
+---
+import DosPlayer from "../components/DosPlayer.astro";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>The Oregon Trail – Play in your browser</title>
+    <meta name="description" content="Play The Oregon Trail free in your browser. No install needed." />
+  </head>
+  <body>
+    <!--
+      This page wraps the player in its own bare-bones HTML so it works on any Astro site.
+      To match your site, replace <html>…<body> with your layout, e.g.
+        <Layout title="The Oregon Trail"> …content… </Layout>
+      and keep the content inside <main>.
+    -->
+    <main class="page">
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a> / <span>The Oregon Trail</span></nav>
+      <h1>The Oregon Trail <small>Play free in your browser</small></h1>
+      <p class="lede">
+        Stock the wagon, ford the rivers, hunt for food and try to reach the Willamette Valley before winter closes in.
+        The classic MS-DOS game runs right here in a DOSBox emulator, with nothing to install.
+      </p>
+
+      <DosPlayer title="The Oregon Trail" subtitle="MS-DOS" bundle="games/oregon-trail.jsdos" />
+
+      <footer class="credit">
+        Emulation by <a href="https://js-dos.com" rel="noopener">js-dos</a> and DOSBox (GPL-2.0).
+      </footer>
+    </main>
+  </body>
+</html>
+
+<style is:global>
+  body {
+    margin: 0;
+    background: #f4e9d2;
+    background-image: radial-gradient(1200px 500px at 50% -120px, #fff3d6 0%, rgba(255, 243, 214, 0) 70%);
+    color: #2b1d12;
+    font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+</style>
+
+<style>
+  .page { max-width: 980px; margin: 0 auto; padding: 22px 18px 56px; }
+  .crumbs { font-size: 13px; color: #5d4a38; margin-bottom: 10px; }
+  .crumbs a { color: inherit; }
+  .crumbs span { color: #2b1d12; font-weight: 600; }
+  h1 {
+    margin: 0 0 6px;
+    font: 700 clamp(30px, 6vw, 48px) / 1.08 ui-serif, Georgia, "Times New Roman", serif;
+    letter-spacing: -0.01em;
+  }
+  h1 small {
+    display: block; margin-top: 6px;
+    font: 600 13px/1 system-ui, sans-serif; letter-spacing: 0.14em; text-transform: uppercase; color: #b04a1f;
+  }
+  .lede { max-width: 62ch; color: #5d4a38; margin: 14px 0 22px; }
+  .credit { margin-top: 28px; font-size: 13px; color: #5d4a38; }
+  .credit a { color: #b04a1f; }
+</style>
